@@ -2,7 +2,7 @@ spring:
   datasource:
     url: jdbc:postgresql://db.lwoiyulwmuaybduusrxe.supabase.co:5432/postgres?sslmode=require
     username: postgres
-    password: gna5Jpt&*7U!s@+
+    password: "gna5Jpt&*7U!s@+"
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -11,7 +11,7 @@ spring:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 
   kafka:
-    bootstrap-servers: 10.0.0.111:9092
+    bootstrap-servers: host.docker.internal:9092
     admin:
       auto-create: true
     producer:
@@ -24,8 +24,5 @@ spring:
       properties:
         spring.json.trusted.packages: "*"
 
-
 server:
   port: 8081
-
-

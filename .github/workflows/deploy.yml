@@ -5,6 +5,14 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
+# Avoid overlapping deploys on the same branch
+concurrency:
+  group: order-service-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
@@ -35,6 +43,12 @@ jobs:
       - name: Build JAR
         run: ./gradlew --no-daemon clean build -x test
 
+      - name: Verify build output
+        run: |
+          echo "Built artifacts:"
+          ls -lah build/libs || true
+          test -n "$(ls -1 build/libs/*.jar 2>/dev/null | head -n1)" || { echo "ERROR: No JAR found under build/libs"; exit 1; }
+
       - name: Copy files to VM
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -48,12 +62,3 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VM_HOST }}
-          username: opc
-          key: ${{ secrets.VM_SSH_KEY }}
-          script: |
-            set -e
-            cd ~/order-service
-            docker compose -f docker-compose.yml down || true
-            docker compose -f docker-compose.yml build --no-cache
-            docker compose -f docker-compose.yml up -d
-            docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
