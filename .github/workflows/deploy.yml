@@ -5,9 +5,17 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
+# Needed to read private GitHub Packages during Gradle build
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      USERNAME: ${{ secrets.GPR_USER }}   # for GitHub Packages
+      TOKEN: ${{ secrets.GPR_KEY }}       # for GitHub Packages
     steps:
       - uses: actions/checkout@v4
 
@@ -45,31 +53,42 @@ jobs:
         id: jar
         run: echo "jar_path=$(ls dist/*.jar | head -n1)" >> $GITHUB_OUTPUT
 
+      - name: Ensure target dir exists (on VM)
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: opc
+          key: ${{ secrets.VM_SSHKEY || secrets.VM_SSH_KEY }}
+          script: |
+            set -e
+            sudo mkdir -p /opt/order-service
+            sudo chown opc:opc /opt/order-service
+
       - name: Copy JAR to Oracle Linux VM
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USER }}
-          key: ${{ secrets.VM_SSH_KEY }}
+          username: opc
+          key: ${{ secrets.VM_SSHKEY || secrets.VM_SSH_KEY }}
           source: ${{ steps.jar.outputs.jar_path }}
           target: "/opt/order-service/"
           strip_components: 0
+          overwrite: true
 
-      - name: Configure systemd service (Oracle Linux) & restart
+      - name: Configure systemd service & restart
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USER }}
-          key: ${{ secrets.VM_SSH_KEY }}
+          username: opc
+          key: ${{ secrets.VM_SSHKEY || secrets.VM_SSH_KEY }}
           script: |
             set -e
-            # Place the jar
-            sudo mkdir -p /opt/order-service
-            sudo chown $USER:$USER /opt/order-service
+            # Rename latest jar to app.jar
             LATEST=$(ls -t /opt/order-service/*.jar | head -n1)
             sudo mv "$LATEST" /opt/order-service/app.jar
+            sudo chown opc:opc /opt/order-service/app.jar
 
-            # Create/refresh systemd unit (Oracle Linux uses systemd)
+            # Create/refresh systemd unit
             sudo bash -c 'cat > /etc/systemd/system/order-service.service' << "EOU"
             [Unit]
             Description=Order Service (Spring Boot)
@@ -92,7 +111,7 @@ jobs:
             sudo systemctl enable order-service
             sudo systemctl restart order-service
 
-            # Oracle Linux typically uses firewalld
+            # Open 8081 if firewalld is present
             if command -v firewall-cmd >/dev/null 2>&1; then
               sudo firewall-cmd --permanent --add-port=8081/tcp || true
               sudo firewall-cmd --reload || true
