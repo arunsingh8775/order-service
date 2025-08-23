@@ -12,26 +12,11 @@ java {
     toolchain { languageVersion = JavaLanguageVersion.of(17) }
 }
 
-repositories {
-    mavenCentral()
-
-    // -- GitHub Packages: shared models lib
-    maven {
-        url = uri("https://maven.pkg.github.com/arunsingh8775/order-tracking-common")
-        credentials {
-            // Prefer gradle.properties; fallback to env vars
-            username = "arunsingh8775"
-            password = "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"
-        }
-    }
-
-    // Optional for local testing:E
-    // mavenLocal()
-}
+/* No repositories{} here because settings.gradle supplies them */
 
 dependencies {
-    // Shared models (OrderEvent, etc.)
-    implementation "com.example:order-tracking-common:1.0.0"
+    // JitPack library
+    implementation "com.github.arunsingh8775:order-tracking-common:v1.0.2"
 
     // Spring starters
     implementation 'org.springframework.boot:spring-boot-starter'
@@ -51,6 +36,4 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-tasks.named('test') {
-    useJUnitPlatform()
-}
+tasks.named('test') { useJUnitPlatform() }
