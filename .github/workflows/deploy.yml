@@ -5,7 +5,6 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
-# Needed to read private GitHub Packages during Gradle build
 permissions:
   contents: read
   packages: read
@@ -14,8 +13,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      USERNAME: ${{ secrets.GPR_USER }}   # for GitHub Packages
-      TOKEN: ${{ secrets.GPR_KEY }}       # for GitHub Packages
+      USERNAME: ${{ secrets.GPR_USER }}   # only needed if you still pull from GitHub Packages
+      TOKEN: ${{ secrets.GPR_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -58,33 +57,44 @@ jobs:
         with:
           host: ${{ secrets.VM_HOST }}
           username: opc
-          key: ${{ secrets.VM_SSHKEY || secrets.VM_SSH_KEY }}
+          key: ${{ secrets.VM_SSH_KEY }}
           script: |
             set -e
             sudo mkdir -p /opt/order-service
             sudo chown opc:opc /opt/order-service
+            ls -la /opt/order-service
 
       - name: Copy JAR to Oracle Linux VM
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VM_HOST }}
           username: opc
-          key: ${{ secrets.VM_SSHKEY || secrets.VM_SSH_KEY }}
+          key: ${{ secrets.VM_SSH_KEY }}
           source: ${{ steps.jar.outputs.jar_path }}
           target: "/opt/order-service/"
-          strip_components: 0
           overwrite: true
+          strip_components: 0
 
       - name: Configure systemd service & restart
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VM_HOST }}
           username: opc
-          key: ${{ secrets.VM_SSHKEY || secrets.VM_SSH_KEY }}
+          key: ${{ secrets.VM_SSH_KEY }}
           script: |
             set -e
-            # Rename latest jar to app.jar
+
+            echo "Checking uploaded JAR..."
+            COUNT=$(ls -1 /opt/order-service/*.jar 2>/dev/null | wc -l)
+            if [ "$COUNT" -eq 0 ]; then
+              echo "ERROR: No JARs found in /opt/order-service after SCP."
+              ls -la /opt/order-service || true
+              exit 1
+            fi
+
+            # Rename newest JAR to app.jar
             LATEST=$(ls -t /opt/order-service/*.jar | head -n1)
+            echo "Using JAR: $LATEST"
             sudo mv "$LATEST" /opt/order-service/app.jar
             sudo chown opc:opc /opt/order-service/app.jar
 
@@ -106,10 +116,9 @@ jobs:
             WantedBy=multi-user.target
             EOU
 
-            # Enable & restart
             sudo systemctl daemon-reload
             sudo systemctl enable order-service
-            sudo systemctl restart order-service
+            sudo systemctl restart order-service || (sudo journalctl -u order-service -n 100 --no-pager && false)
 
             # Open 8081 if firewalld is present
             if command -v firewall-cmd >/dev/null 2>&1; then
@@ -117,5 +126,6 @@ jobs:
               sudo firewall-cmd --reload || true
             fi
 
-            # Show status
-            sudo systemctl --no-pager -n 80 status order-service || true
+            # Show status and last logs
+            sudo systemctl --no-pager -n 50 status order-service || true
+            sudo journalctl -u order-service -n 50 --no-pager || true
