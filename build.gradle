@@ -21,7 +21,7 @@ repositories {
         credentials {
             // Prefer gradle.properties; fallback to env vars
             username = "arunsingh8775"
-            password = "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"
+            password = "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"
         }
     }
 
