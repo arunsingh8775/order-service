@@ -1,0 +1,102 @@
+name: Build & Deploy (Oracle Linux VM)
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Build (skip tests)
+        id: buildjar
+        run: |
+          chmod +x gradlew
+          ./gradlew -x test clean bootJar || ./gradlew -x test clean jar
+          echo "jar_path=$(ls -t build/libs/*.jar | head -n1)" >> $GITHUB_OUTPUT
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: order-jar
+          path: ${{ steps.buildjar.outputs.jar_path }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: order-jar
+          path: dist
+
+      - name: Identify JAR
+        id: jar
+        run: echo "jar_path=$(ls dist/*.jar | head -n1)" >> $GITHUB_OUTPUT
+
+      - name: Copy JAR to Oracle Linux VM
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          source: ${{ steps.jar.outputs.jar_path }}
+          target: "/opt/order-service/"
+          strip_components: 0
+
+      - name: Configure systemd service (Oracle Linux) & restart
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            set -e
+            # Place the jar
+            sudo mkdir -p /opt/order-service
+            sudo chown $USER:$USER /opt/order-service
+            LATEST=$(ls -t /opt/order-service/*.jar | head -n1)
+            sudo mv "$LATEST" /opt/order-service/app.jar
+
+            # Create/refresh systemd unit (Oracle Linux uses systemd)
+            sudo bash -c 'cat > /etc/systemd/system/order-service.service' << "EOU"
+            [Unit]
+            Description=Order Service (Spring Boot)
+            After=network.target
+
+            [Service]
+            User=opc
+            WorkingDirectory=/opt/order-service
+            ExecStart=/usr/bin/java -jar /opt/order-service/app.jar
+            Restart=on-failure
+            RestartSec=5
+            SuccessExitStatus=143
+
+            [Install]
+            WantedBy=multi-user.target
+            EOU
+
+            # Enable & restart
+            sudo systemctl daemon-reload
+            sudo systemctl enable order-service
+            sudo systemctl restart order-service
+
+            # Oracle Linux typically uses firewalld
+            if command -v firewall-cmd >/dev/null 2>&1; then
+              sudo firewall-cmd --permanent --add-port=8081/tcp || true
+              sudo firewall-cmd --reload || true
+            fi
+
+            # Show status
+            sudo systemctl --no-pager -n 80 status order-service || true
