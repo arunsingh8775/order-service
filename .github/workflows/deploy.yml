@@ -64,14 +64,14 @@ jobs:
             sudo chown opc:opc /opt/order-service
             ls -la /opt/order-service
 
-      - name: Copy JAR to Oracle Linux VM
+      - name: Copy JAR to Oracle Linux VM (as app.jar)
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VM_HOST }}
           username: opc
           key: ${{ secrets.VM_SSH_KEY }}
           source: ${{ steps.jar.outputs.jar_path }}
-          target: "/opt/order-service/"
+          target: "/opt/order-service/app.jar"   # write the final filename directly
           overwrite: true
           strip_components: 0
 
@@ -84,18 +84,12 @@ jobs:
           script: |
             set -e
 
-            echo "Checking uploaded JAR..."
-            COUNT=$(ls -1 /opt/order-service/*.jar 2>/dev/null | wc -l)
-            if [ "$COUNT" -eq 0 ]; then
-              echo "ERROR: No JARs found in /opt/order-service after SCP."
+            # Verify jar exists at the expected path
+            if [ ! -f /opt/order-service/app.jar ]; then
+              echo "ERROR: /opt/order-service/app.jar not found after SCP."
               ls -la /opt/order-service || true
               exit 1
             fi
-
-            # Rename newest JAR to app.jar
-            LATEST=$(ls -t /opt/order-service/*.jar | head -n1)
-            echo "Using JAR: $LATEST"
-            sudo mv "$LATEST" /opt/order-service/app.jar
             sudo chown opc:opc /opt/order-service/app.jar
 
             # Create/refresh systemd unit
