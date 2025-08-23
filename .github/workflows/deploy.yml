@@ -61,19 +61,20 @@ jobs:
           script: |
             set -e
             sudo mkdir -p /opt/order-service
-            sudo chown opc:opc /opt/order-service
+            sudo chown -R opc:opc /opt/order-service
+            # Clean old mistakes (folder called app.jar, etc.)
+            [ -d /opt/order-service/app.jar ] && sudo rm -rf /opt/order-service/app.jar || true
             ls -la /opt/order-service
 
-      - name: Copy JAR to Oracle Linux VM (as app.jar)
+      - name: Copy JAR to Oracle Linux VM
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VM_HOST }}
           username: opc
           key: ${{ secrets.VM_SSH_KEY }}
-          source: ${{ steps.jar.outputs.jar_path }}
-          target: "/opt/order-service/app.jar"   # write the final filename directly
+          source: dist/*.jar          # copy the actual file
+          target: /opt/order-service/ # target must be a directory
           overwrite: true
-          strip_components: 0
 
       - name: Configure systemd service & restart
         uses: appleboy/ssh-action@v1.2.0
@@ -83,16 +84,19 @@ jobs:
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
             set -e
+            # Keep only one jar named app.jar
+            if ls /opt/order-service/*.jar >/dev/null 2>&1; then
+              latest="$(ls -t /opt/order-service/*.jar | head -n1)"
+              sudo mv -f "$latest" /opt/order-service/app.jar
+            fi
 
-            # Verify jar exists at the expected path
             if [ ! -f /opt/order-service/app.jar ]; then
-              echo "ERROR: /opt/order-service/app.jar not found after SCP."
+              echo "ERROR: app.jar not present after upload/rename"
               ls -la /opt/order-service || true
               exit 1
             fi
             sudo chown opc:opc /opt/order-service/app.jar
 
-            # Create/refresh systemd unit
             sudo bash -c 'cat > /etc/systemd/system/order-service.service' << "EOU"
             [Unit]
             Description=Order Service (Spring Boot)
@@ -120,6 +124,5 @@ jobs:
               sudo firewall-cmd --reload || true
             fi
 
-            # Show status and last logs
             sudo systemctl --no-pager -n 50 status order-service || true
             sudo journalctl -u order-service -n 50 --no-pager || true
