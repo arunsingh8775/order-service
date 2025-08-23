@@ -15,14 +15,12 @@ java {
 /* No repositories{} here because settings.gradle supplies them */
 
 dependencies {
-    // JitPack library
-    implementation "com.github.arunsingh8775:order-tracking-common:v1.0.2"
-
     // Spring starters
     implementation 'org.springframework.boot:spring-boot-starter'
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.kafka:spring-kafka'
+    implementation 'com.github.arunsingh8775:order-tracking-common:v1.0.4'
 
     // Database
     implementation 'org.postgresql:postgresql'
