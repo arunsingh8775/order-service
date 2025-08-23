@@ -1,12 +1,12 @@
 spring:
   datasource:
-    url: jdbc:postgresql://db.lwoiyulwmuaybduusrxe.supabase.co:5432/postgres?sslmode=require
+    url: jdbc:postgresql://postgres:5432/order_management
     username: postgres
-    password: "gna5Jpt&*7U!s@+"
+    password: "postgres"
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: update   # or validate / none in production
+      ddl-auto: update
     show-sql: true
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 
