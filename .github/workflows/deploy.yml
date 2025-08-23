@@ -13,6 +13,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Ensure gradlew is executable (fix CRLF if needed)
+        run: |
+          if command -v dos2unix >/dev/null 2>&1; then :; else sudo apt-get update && sudo apt-get install -y dos2unix; fi
+          dos2unix gradlew || true
+          chmod +x gradlew
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -20,7 +26,7 @@ jobs:
           java-version: 17
 
       - name: Build JAR with Gradle
-        run: ./gradlew clean build -x test
+        run: ./gradlew --no-daemon clean build -x test
 
       - name: Upload JAR as artifact
         uses: actions/upload-artifact@v4
