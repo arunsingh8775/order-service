@@ -24,7 +24,7 @@ jobs:
           ./gradlew -x test clean bootJar || ./gradlew -x test clean jar
           echo "jar_path=$(ls -t build/libs/*.jar | head -n1)" >> $GITHUB_OUTPUT
 
-      - name: Ensure target dir & Java on VM
+      - name: Ensure target dir on VM
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VM_HOST }}
@@ -33,7 +33,6 @@ jobs:
           script: |
             sudo mkdir -p /opt/order-service
             sudo chown -R opc:opc /opt/order-service
-            command -v java >/dev/null 2>&1 || sudo dnf -y install java-17-openjdk || sudo yum -y install java-17-openjdk
 
       - name: Copy JAR to VM
         uses: appleboy/scp-action@v0.1.7
@@ -44,9 +43,9 @@ jobs:
           source: ${{ steps.buildjar.outputs.jar_path }}
           target: /opt/order-service/
           overwrite: true
-          strip_components: 2   # drop "build/libs/"
+          strip_components: 2
 
-      - name: Configure systemd & restart
+      - name: Configure systemd & start services
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VM_HOST }}
@@ -54,28 +53,63 @@ jobs:
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
             set -e
+
+            # app jar -> stable name
             latest="$(ls -t /opt/order-service/*.jar | head -n1)"
             sudo mv -f "$latest" /opt/order-service/app.jar
+            sudo chown opc:opc /opt/order-service/app.jar
 
+            # order-service
             sudo bash -c 'cat > /etc/systemd/system/order-service.service' << "EOU"
             [Unit]
-            Description=Order Service (Spring Boot)
+            Description=Order Service
             After=network.target
             [Service]
             User=opc
             WorkingDirectory=/opt/order-service
             ExecStart=/usr/bin/java -jar /opt/order-service/app.jar --server.port=8081
             Restart=on-failure
-            RestartSec=5
+            [Install]
+            WantedBy=multi-user.target
+            EOU
+
+            # zookeeper
+            sudo bash -c 'cat > /etc/systemd/system/zookeeper.service' << "EOU"
+            [Unit]
+            Description=Zookeeper
+            After=network.target
+            [Service]
+            Type=simple
+            User=opc
+            ExecStart=/usr/bin/java -Xmx512M -Xms512M -cp /opt/kafka/libs/* org.apache.zookeeper.server.quorum.QuorumPeerMain /opt/kafka/config/zookeeper.properties
+            Restart=on-failure
+            [Install]
+            WantedBy=multi-user.target
+            EOU
+
+            # kafka
+            sudo bash -c 'cat > /etc/systemd/system/kafka.service' << "EOU"
+            [Unit]
+            Description=Kafka
+            After=zookeeper.service
+            [Service]
+            Type=simple
+            User=opc
+            ExecStart=/usr/bin/java -Xmx1G -Xms1G -cp /opt/kafka/libs/* kafka.Kafka /opt/kafka/config/server.properties
+            Restart=on-failure
             [Install]
             WantedBy=multi-user.target
             EOU
 
             sudo systemctl daemon-reload
-            sudo systemctl enable order-service
+            sudo systemctl enable zookeeper kafka order-service
+            sudo systemctl restart zookeeper
+            sudo systemctl restart kafka
             sudo systemctl restart order-service
 
             if command -v firewall-cmd >/dev/null 2>&1; then
               sudo firewall-cmd --permanent --add-port=8081/tcp || true
+              sudo firewall-cmd --permanent --add-port=9092/tcp || true
+              sudo firewall-cmd --permanent --add-port=2181/tcp || true
               sudo firewall-cmd --reload || true
             fi
