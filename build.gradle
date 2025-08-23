@@ -20,8 +20,8 @@ repositories {
         url = uri("https://maven.pkg.github.com/arunsingh8775/order-tracking-common")
         credentials {
             // Prefer gradle.properties; fallback to env vars
-            username = project.findProperty("gpr.user") ?: System.getenv("GITHUB_ACTOR")
-            password = project.findProperty("gpr.key")  ?: System.getenv("GITHUB_TOKEN")
+            username = "arunsingh8775"
+            password = "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"
         }
     }
 
