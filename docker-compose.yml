@@ -8,11 +8,11 @@ services:
     ports:
       - "8081:8081"
     environment:
-      SPRING_DATASOURCE_URL: "jdbc:postgresql://10.0.0.117:5432/order_management"
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://${VM_LOCAL_IP}:5432/order_management"
       SPRING_DATASOURCE_USERNAME: "postgres"
       SPRING_DATASOURCE_PASSWORD: "postgres"
       SPRING_JPA_HIBERNATE_DDL_AUTO: "update"
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: "10.0.0.117:9092"
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: "${VM_LOCAL_IP}:9092"
       SERVER_PORT: "8081"
       JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=60 -XX:InitialRAMPercentage=25 -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
     networks: [backend]
