@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://${VM_LOCAL_IP}:5432/order_management
+    url: jdbc:postgresql://10.0.0.117:5432/order_management
     username: postgres
     password: postgres
     driver-class-name: org.postgresql.Driver
@@ -12,7 +12,7 @@ spring:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 
   kafka:
-    bootstrap-servers: ${VM_LOCAL_IP}:9092
+    bootstrap-servers: 10.0.0.117:9092
     admin:
       auto-create: true
     producer:
