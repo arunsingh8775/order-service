@@ -6,6 +6,7 @@ import com.example.orderservice.model.OrderResponse;
 import com.example.orderservice.repository.OrderRepository;
 import com.example.orderservice.model.OrderEntity;
 import com.example.orderservice.model.*;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
+@Slf4j
 public class OrderService {
 
     @Autowired
@@ -31,8 +33,18 @@ public class OrderService {
         orderEntity.setShippingStatus(ShippingStatus.NOT_SHIPPED);
         orderEntity.setCreatedAt(LocalDateTime.now());
 
+        // Log before save
+        log.info("Saving new order for userId={}, productId={}, qty={}, amount={}",
+                orderEntity.getUserId(),
+                orderEntity.getProductId(),
+                orderEntity.getQty(),
+                orderEntity.getTotalAmount());
+
         // Save to DB
         OrderEntity saved = orderRepository.save(orderEntity);
+
+        // Log after save
+        log.info("Order saved successfully with orderId={}", saved.getOrderId());
 
         // Convert to response
         return mapToResponse(saved);

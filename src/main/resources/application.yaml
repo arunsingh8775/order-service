@@ -45,5 +45,7 @@ springdoc:
     path: /swagger-ui
     operationsSorter: method
     tagsSorter: alpha
+    try-it-out-enabled: true
+    supported-submit-methods: [ get, post, put, delete, patch ]
 
 

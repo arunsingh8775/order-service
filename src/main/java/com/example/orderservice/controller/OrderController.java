@@ -22,7 +22,7 @@ import java.util.List;
 
 @Tag(name = "Order Management", description = "Create and retrieve orders")
 @RestController
-@RequestMapping("/api/orders")
+@RequestMapping(value = "/api/orders", produces = "application/json") // ← added produces
 public class OrderController {
 
     private final OrderService orderService;
@@ -73,7 +73,7 @@ public class OrderController {
                     @ApiResponse(responseCode = "400", description = "Invalid input", content = @Content)
             }
     )
-    @PostMapping
+    @PostMapping(consumes = "application/json") // ← added consumes
     public ResponseEntity<OrderResponse> createOrder(@RequestBody OrderRequest orderRequest) {
         // Save order in DB
         OrderResponse savedOrder = orderService.createOrder(orderRequest);
@@ -119,7 +119,6 @@ public class OrderController {
             ),
             @ApiResponse(responseCode = "404", description = "Order not found", content = @Content)
     })
-
     @GetMapping("/{id}")
     public ResponseEntity<OrderResponse> getOrder(
             @Parameter(description = "Order ID", example = "101")
