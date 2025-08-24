@@ -12,7 +12,7 @@ services:
       SPRING_DATASOURCE_USERNAME: "postgres"
       SPRING_DATASOURCE_PASSWORD: "postgres"
       SPRING_JPA_HIBERNATE_DDL_AUTO: "update"
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: "10.0.0.117:9092"
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: "10.0.0.117:9094"
       SERVER_PORT: "8081"
       JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=60 -XX:InitialRAMPercentage=25 -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
     networks: [backend]
