@@ -90,14 +90,14 @@ jobs:
             echo "== Search for JARs =="
             find . -type f -name '*.jar' -print || true
 
-            # Find whatever JAR was copied (any depth), normalize to app.jar
-            JAR="$(find . -type f -name '*.jar' | head -n1 || true)"
+            # Pick the bootable Spring Boot jar (exclude *-plain.jar) and normalize to app.jar
+            JAR="$(find . -type f -name '*.jar' ! -name '*-plain.jar' | head -n1 || true)"
             if [ -z "${JAR:-}" ]; then
-              echo "No JAR found on VM in /home/opc/order-service"; exit 1
+              echo "No bootable JAR found (non-plain) in /home/opc/order-service"; exit 1
             fi
             cp -f "$JAR" app.jar
 
-            # Ensure external docker network exists (order-service only connects)
+            # Ensure external docker network exists
             sudo docker network inspect backend >/dev/null 2>&1 || sudo docker network create backend
 
             # Build runtime image from Dockerfile in current dir
