@@ -16,3 +16,9 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"   # <- resolves host from Linux containers
     networks: [backend]
+
+
+networks:
+  backend:
+    external: true
+    name: backend
