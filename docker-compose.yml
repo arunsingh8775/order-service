@@ -1,22 +1,21 @@
+version: "3.8"
+
 services:
   order-service:
-    image: order-service:latest
     container_name: order-service
+    image: order-service:latest
     restart: unless-stopped
     ports:
       - "8081:8081"
     environment:
-      SPRING_DATASOURCE_URL: "jdbc:postgresql://host.docker.internal:5432/order_management"
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://${POSTGRES_HOST}:5432/order_management"
       SPRING_DATASOURCE_USERNAME: "postgres"
       SPRING_DATASOURCE_PASSWORD: "postgres"
       SPRING_JPA_HIBERNATE_DDL_AUTO: "update"
       SPRING_KAFKA_BOOTSTRAP_SERVERS: "localhost:9092"
       SERVER_PORT: "8081"
       JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=60 -XX:InitialRAMPercentage=25 -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"   # <- resolves host from Linux containers
     networks: [backend]
-
 
 networks:
   backend:

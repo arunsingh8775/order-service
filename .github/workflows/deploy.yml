@@ -85,6 +85,9 @@ jobs:
             set -euo pipefail
             cd /home/opc/order-service
 
+            # Export Postgres host (from GitHub Secret)
+            export POSTGRES_HOST=${POSTGRES_HOST}
+
             echo "== Directory contents =="
             ls -lah || true
             echo "== Search for JARs =="
