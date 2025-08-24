@@ -135,7 +135,11 @@ public class OrderController {
     @ApiResponse(
             responseCode = "200",
             description = "Orders list",
-            content = @Content(schema = @Schema(implementation = OrderResponse.class))
+            content = @Content(
+                    array = @io.swagger.v3.oas.annotations.media.ArraySchema(
+                            schema = @Schema(implementation = OrderResponse.class)
+                    )
+            )
     )
     public ResponseEntity<List<OrderResponse>> getAllOrders() {
         List<OrderResponse> orders = orderService.getAllOrders();
