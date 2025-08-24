@@ -24,7 +24,8 @@ jobs:
           dos2unix gradlew || true
           chmod +x gradlew
 
-      - uses: actions/setup-java@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
@@ -55,6 +56,16 @@ jobs:
           echo "jar_path=$JAR" >> "$GITHUB_OUTPUT"
           echo "jar_name=$(basename "$JAR")" >> "$GITHUB_OUTPUT"
 
+      - name: Prepare target dir on VM
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: opc
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            set -e
+            mkdir -p /home/opc/order-service
+
       - name: Copy files to VM
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -62,7 +73,7 @@ jobs:
           username: opc
           key: ${{ secrets.VM_SSH_KEY }}
           source: "${{ steps.findjar.outputs.jar_path }},docker-compose.yml,Dockerfile"
-          target: "~/order-service"
+          target: "/home/opc/order-service"
 
       - name: Deploy on VM
         uses: appleboy/ssh-action@v1.2.0
@@ -72,28 +83,33 @@ jobs:
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
             set -euo pipefail
-            cd ~/order-service
+            cd /home/opc/order-service
 
-            # Find whatever JAR was copied (path may include build/libs or root)
-            JAR="$(find . -maxdepth 2 -type f -name '*.jar' | head -n1 || true)"
+            echo "== Directory contents =="
+            ls -lah || true
+            echo "== Search for JARs =="
+            find . -type f -name '*.jar' -print || true
+
+            # Find whatever JAR was copied (any depth), normalize to app.jar
+            JAR="$(find . -type f -name '*.jar' | head -n1 || true)"
             if [ -z "${JAR:-}" ]; then
-              echo "No JAR found on VM in ~/order-service"; exit 1
+              echo "No JAR found on VM in /home/opc/order-service"; exit 1
             fi
             cp -f "$JAR" app.jar
 
-            # Ensure a dedicated Docker network exists
+            # Ensure external docker network exists (order-service only connects)
             sudo docker network inspect backend >/dev/null 2>&1 || sudo docker network create backend
 
             # Build runtime image from Dockerfile in current dir
             TAG="order-service:$(date +%s)"
             sudo docker build -t "$TAG" -f Dockerfile .
 
-            # Update compose file to use the freshly built image (if it defines image:)
+            # If compose has an image: line for order-service, patch it to this tag
             if grep -qE '^\s*image:\s*.*order-service' docker-compose.yml; then
               sudo sed -i "s|^\(\s*image:\s*\).*|\1$TAG|g" docker-compose.yml
             fi
 
-            # Redeploy
+            # Redeploy service
             sudo docker compose down || true
             sudo docker compose up -d
 
