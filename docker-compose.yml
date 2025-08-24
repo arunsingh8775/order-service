@@ -1,28 +1,18 @@
-version: "3.8"
-
 services:
   order-service:
-    container_name: order-service
-    # This image tag is patched dynamically by your GitHub Actions workflow
     image: order-service:latest
+    container_name: order-service
     restart: unless-stopped
     ports:
       - "8081:8081"
     environment:
-      # Use your existing Postgres (already running on VM)
-      SPRING_DATASOURCE_URL: "jdbc:postgresql://localhost:5432/order_management"
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://host.docker.internal:5432/order_management"
       SPRING_DATASOURCE_USERNAME: "postgres"
       SPRING_DATASOURCE_PASSWORD: "postgres"
       SPRING_JPA_HIBERNATE_DDL_AUTO: "update"
-
-      # Use your existing Kafka (already running in Docker from another repo)
       SPRING_KAFKA_BOOTSTRAP_SERVERS: "localhost:9092"
-
-      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=60 -XX:InitialRAMPercentage=25 -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
       SERVER_PORT: "8081"
-
+      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=60 -XX:InitialRAMPercentage=25 -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # <- resolves host from Linux containers
     networks: [backend]
-
-networks:
-  backend:
-    external: true
