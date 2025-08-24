@@ -5,26 +5,77 @@ import com.example.orderservice.model.OrderResponse;
 import com.example.orderservice.kafka.OrderEventProducer;
 import com.example.orderservice.service.OrderService;
 import com.example.ordertrackingcommon.model.OrderEvent;
-import org.springframework.beans.factory.annotation.Autowired;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+@Tag(name = "Order Management", description = "Create and retrieve orders")
 @RestController
 @RequestMapping("/api/orders")
 public class OrderController {
 
-    @Autowired
-    private OrderService orderService;
+    private final OrderService orderService;
+    private final OrderEventProducer orderEventProducer;
 
-    @Autowired
-    private OrderEventProducer orderEventProducer;
+    public OrderController(OrderService orderService, OrderEventProducer orderEventProducer) {
+        this.orderService = orderService;
+        this.orderEventProducer = orderEventProducer;
+    }
 
+    @Operation(
+            summary = "Create a new order",
+            description = "Persists an order and publishes an `OrderCreated` event to Kafka.",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    content = @Content(
+                            schema = @Schema(implementation = OrderRequest.class),
+                            examples = @ExampleObject(
+                                    name = "Sample order",
+                                    value = """
+                    {
+                      "userId": "U001",
+                      "productId": "P001",
+                      "quantity": 2
+                    }
+                    """
+                            )
+                    )
+            ),
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Order created",
+                            content = @Content(schema = @Schema(implementation = OrderResponse.class),
+                                    examples = @ExampleObject(
+                                            name = "Created",
+                                            value = """
+                        {
+                          "eventType": "OrderCreated",
+                          "orderId": 101,
+                          "userId": "U001",
+                          "productId": "P001",
+                          "quantity": 2,
+                          "amount": 200.0
+                        }
+                        """
+                                    )
+                            )
+                    ),
+                    @ApiResponse(responseCode = "400", description = "Invalid input", content = @Content)
+            }
+    )
     @PostMapping
     public ResponseEntity<OrderResponse> createOrder(@RequestBody OrderRequest orderRequest) {
         // Save order in DB
         OrderResponse savedOrder = orderService.createOrder(orderRequest);
 
-        // Build event
+        // Build and publish event
         OrderEvent event = new OrderEvent(
                 "OrderCreated",
                 savedOrder.getOrderId(),
@@ -33,15 +84,13 @@ public class OrderController {
                 savedOrder.getQuantity(),
                 savedOrder.getAmount()
         );
-
-        // Send event to Kafka
         orderEventProducer.publishOrderEvent(event);
 
         return ResponseEntity.ok(savedOrder);
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<OrderResponse> getOrder(@PathVariable Long id) {
-        return ResponseEntity.ok(orderService.getOrderById(id));
-    }
-}
+    @Operation(
+            summary = "Get order by ID",
+            description = "Fetch a single order by its ID.",
+            parameters = {
+                    @Parameter(name = "id
