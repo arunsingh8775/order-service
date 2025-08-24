@@ -6,47 +6,22 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: order-service:latest
+    restart: unless-stopped
     ports:
       - "8081:8081"
     environment:
-      # Kafka is outside this compose, so keep host.docker.internal
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: "host.docker.internal:9092"
-      # 👉 Postgres is inside this compose: use the service name
       SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/order_management"
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: "host.docker.internal:9092"
+      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=60 -XX:InitialRAMPercentage=25 -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
       SERVER_PORT: 8081
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
-    # optional: simple app health probe
-    healthcheck:
-      test: ["CMD-SHELL", "timeout 2 bash -lc '</dev/tcp/127.0.0.1/8081' || exit 1"]
-      interval: 10s
-      timeout: 3s
-      retries: 10
-    # needed only for Kafka on the host / another stack
+    networks: [backend]
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
-  postgres:
-    image: postgres:16-alpine
-    container_name: postgres
-    restart: unless-stopped
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: order_management
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d order_management -h 127.0.0.1 -p 5432"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
-volumes:
-  pgdata:
+networks:
+  backend:
+    external: true
