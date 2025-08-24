@@ -42,11 +42,18 @@ jobs:
       - name: Build JAR
         run: ./gradlew --no-daemon clean bootJar -x test
 
-      - name: Verify build output
+      - name: Locate built JAR
+        id: findjar
+        shell: bash
         run: |
-          echo "Built artifacts:"
+          set -e
+          echo "Built artifacts under build/libs:"
           ls -lah build/libs || true
-          test -n "$(ls -1 build/libs/*.jar 2>/dev/null | head -n1)" || { echo "ERROR: No JAR found under build/libs"; exit 1; }
+          # Prefer bootable jar, exclude *-plain.jar if both exist
+          JAR="$(ls -1 build/libs/*.jar 2>/dev/null | grep -v -- '-plain\.jar$' || ls -1 build/libs/*.jar 2>/dev/null | head -n1 || true)"
+          test -n "$JAR" || { echo "No JAR found under build/libs"; exit 1; }
+          echo "jar_path=$JAR" >> "$GITHUB_OUTPUT"
+          echo "jar_name=$(basename "$JAR")" >> "$GITHUB_OUTPUT"
 
       - name: Copy files to VM
         uses: appleboy/scp-action@v0.1.7
@@ -54,7 +61,7 @@ jobs:
           host: ${{ secrets.VM_HOST }}
           username: opc
           key: ${{ secrets.VM_SSH_KEY }}
-          source: "build/libs/*.jar,docker-compose.yml,Dockerfile"
+          source: "${{ steps.findjar.outputs.jar_path }},docker-compose.yml,Dockerfile"
           target: "~/order-service"
 
       - name: Deploy on VM
@@ -67,26 +74,30 @@ jobs:
             set -euo pipefail
             cd ~/order-service
 
-            # rename jar consistently
-            JAR="$(ls -1 build/libs/*.jar 2>/dev/null || ls -1 *.jar 2>/dev/null | head -n1)"
-            [ -n "$JAR" ] || { echo "No JAR found"; exit 1; }
+            # Find whatever JAR was copied (path may include build/libs or root)
+            JAR="$(find . -maxdepth 2 -type f -name '*.jar' | head -n1 || true)"
+            if [ -z "${JAR:-}" ]; then
+              echo "No JAR found on VM in ~/order-service"; exit 1
+            fi
             cp -f "$JAR" app.jar
 
-            # ensure network exists (Kafka & Postgres use it)
+            # Ensure a dedicated Docker network exists
             sudo docker network inspect backend >/dev/null 2>&1 || sudo docker network create backend
 
-            # build runtime image
+            # Build runtime image from Dockerfile in current dir
             TAG="order-service:$(date +%s)"
             sudo docker build -t "$TAG" -f Dockerfile .
 
-            # patch docker-compose.yml to use this image
-            sed -i "s|image:.*order-service.*|image: $TAG|g" docker-compose.yml || true
+            # Update compose file to use the freshly built image (if it defines image:)
+            if grep -qE '^\s*image:\s*.*order-service' docker-compose.yml; then
+              sudo sed -i "s|^\(\s*image:\s*\).*|\1$TAG|g" docker-compose.yml
+            fi
 
-            # redeploy
+            # Redeploy
             sudo docker compose down || true
             sudo docker compose up -d
 
             echo "== Compose status =="
             sudo docker compose ps
-            echo "== Logs (order-service) =="
-            sudo docker logs --tail=80 order-service || true
+            echo "== Last 100 logs (order-service) =="
+            sudo docker logs --tail=100 order-service || true

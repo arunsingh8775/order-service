@@ -1,23 +1,26 @@
+version: "3.8"
+
 services:
   order-service:
     container_name: order-service
-    # Rely on an image tag set by your deploy workflow (recommended).
-    # If you prefer to build here, add a 'build:' block back.
+    # This image tag is patched dynamically by your GitHub Actions workflow
     image: order-service:latest
     restart: unless-stopped
     ports:
       - "8081:8081"
     environment:
-      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/order_management"
+      # Use your existing Postgres (already running on VM)
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://localhost:5432/order_management"
       SPRING_DATASOURCE_USERNAME: "postgres"
       SPRING_DATASOURCE_PASSWORD: "postgres"
       SPRING_JPA_HIBERNATE_DDL_AUTO: "update"
 
-      # Kafka is on the same backend network:
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+      # Use your existing Kafka (already running in Docker from another repo)
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: "localhost:9092"
 
       JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=60 -XX:InitialRAMPercentage=25 -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
       SERVER_PORT: "8081"
+
     networks: [backend]
 
 networks:
