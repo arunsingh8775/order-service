@@ -5,7 +5,6 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
-# Avoid overlapping deploys on the same branch
 concurrency:
   group: order-service-${{ github.ref }}
   cancel-in-progress: true
@@ -41,7 +40,7 @@ jobs:
             ${{ runner.os }}-gradle-
 
       - name: Build JAR
-        run: ./gradlew --no-daemon clean build -x test
+        run: ./gradlew --no-daemon clean bootJar -x test
 
       - name: Verify build output
         run: |
@@ -55,12 +54,39 @@ jobs:
           host: ${{ secrets.VM_HOST }}
           username: opc
           key: ${{ secrets.VM_SSH_KEY }}
-          source: "build/libs/*.jar,Dockerfile,docker-compose.yml"
+          source: "build/libs/*.jar,docker-compose.yml,Dockerfile"
           target: "~/order-service"
 
       - name: Deploy on VM
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VM_HOST }}
           username: opc
           key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd ~/order-service
+
+            # rename jar consistently
+            JAR="$(ls -1 build/libs/*.jar 2>/dev/null || ls -1 *.jar 2>/dev/null | head -n1)"
+            [ -n "$JAR" ] || { echo "No JAR found"; exit 1; }
+            cp -f "$JAR" app.jar
+
+            # ensure network exists (Kafka & Postgres use it)
+            sudo docker network inspect backend >/dev/null 2>&1 || sudo docker network create backend
+
+            # build runtime image
+            TAG="order-service:$(date +%s)"
+            sudo docker build -t "$TAG" -f Dockerfile .
+
+            # patch docker-compose.yml to use this image
+            sed -i "s|image:.*order-service.*|image: $TAG|g" docker-compose.yml || true
+
+            # redeploy
+            sudo docker compose down || true
+            sudo docker compose up -d
+
+            echo "== Compose status =="
+            sudo docker compose ps
+            echo "== Logs (order-service) =="
+            sudo docker logs --tail=80 order-service || true
