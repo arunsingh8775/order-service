@@ -1,5 +1,6 @@
 package com.example.orderservice.service;
 
+import com.example.orderservice.exception.OrderNotFoundException;
 import com.example.orderservice.model.OrderRequest;
 import com.example.orderservice.model.OrderResponse;
 import com.example.orderservice.repository.OrderRepository;
@@ -9,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -37,11 +39,9 @@ public class OrderService {
     }
 
     public OrderResponse getOrderById(Long id) {
-        Optional<OrderEntity> orderOpt = orderRepository.findById(id);
-        if (orderOpt.isEmpty()) {
-            throw new RuntimeException("Order not found with id: " + id);
-        }
-        return mapToResponse(orderOpt.get());
+        return orderRepository.findById(id)
+                .map(this::mapToResponse)
+                .orElseThrow(() -> new OrderNotFoundException(id));
     }
 
     private OrderResponse mapToResponse(OrderEntity entity) {
@@ -59,5 +59,12 @@ public class OrderService {
     private Double calculateAmount(OrderRequest request) {
         // For demo purposes, assume product price = 100/unit
         return request.getQuantity() * 100.0;
+    }
+
+    public List<OrderResponse> getAllOrders() {
+        return orderRepository.findAll()
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
     }
 }

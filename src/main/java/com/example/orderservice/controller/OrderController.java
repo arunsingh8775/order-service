@@ -18,6 +18,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @Tag(name = "Order Management", description = "Create and retrieve orders")
 @RestController
 @RequestMapping("/api/orders")
@@ -58,7 +60,7 @@ public class OrderController {
                                             value = """
                         {
                           "eventType": "OrderCreated",
-                          "orderId": 101,
+                          "orderId": 1,
                           "userId": "U001",
                           "productId": "P001",
                           "quantity": 2,
@@ -105,7 +107,7 @@ public class OrderController {
                                     value = """
                 {
                   "eventType": "OrderCreated",
-                  "orderId": 101,
+                  "orderId": 1,
                   "userId": "U001",
                   "productId": "P001",
                   "quantity": 2,
@@ -117,6 +119,7 @@ public class OrderController {
             ),
             @ApiResponse(responseCode = "404", description = "Order not found", content = @Content)
     })
+
     @GetMapping("/{id}")
     public ResponseEntity<OrderResponse> getOrder(
             @Parameter(description = "Order ID", example = "101")
@@ -124,4 +127,18 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getOrderById(id));
     }
 
+    @GetMapping
+    @Operation(
+            summary = "Get all orders",
+            description = "Fetches all orders from the database."
+    )
+    @ApiResponse(
+            responseCode = "200",
+            description = "Orders list",
+            content = @Content(schema = @Schema(implementation = OrderResponse.class))
+    )
+    public ResponseEntity<List<OrderResponse>> getAllOrders() {
+        List<OrderResponse> orders = orderService.getAllOrders();
+        return ResponseEntity.ok(orders);
+    }
 }
