@@ -86,7 +86,7 @@ jobs:
             cd /home/opc/order-service
 
             # Export Postgres host (from GitHub Secret)
-            export ${VM_LOCAL_IP}=${{ secrets.VM_LOCAL_IP }}
+            export VM_LOCAL_IP="${{ secrets.VM_LOCAL_IP }}"
 
             echo "== Directory contents =="
             ls -lah || true
