@@ -86,7 +86,7 @@ jobs:
             cd /home/opc/order-service
 
             # Export Postgres host (from GitHub Secret)
-            export POSTGRES_HOST=${{ secrets.VM_HOST }}
+            export POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}
 
             echo "== Directory contents =="
             ls -lah || true
