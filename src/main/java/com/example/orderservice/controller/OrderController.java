@@ -93,4 +93,16 @@ public class OrderController {
             summary = "Get order by ID",
             description = "Fetch a single order by its ID.",
             parameters = {
-                    @Parameter(name = "id
+                    @Parameter(name = "id", description = "Order ID", example = "101")
+            },
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Order found",
+                            content = @Content(schema = @Schema(implementation = OrderResponse.class))),
+                    @ApiResponse(responseCode = "404", description = "Order not found", content = @Content)
+            }
+    )
+    @GetMapping("/{id}")
+    public ResponseEntity<OrderResponse> getOrder(@PathVariable Long id) {
+        return ResponseEntity.ok(orderService.getOrderById(id));
+    }
+}
