@@ -8,6 +8,7 @@ import com.example.ordertrackingcommon.model.OrderEvent;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -91,18 +92,36 @@ public class OrderController {
 
     @Operation(
             summary = "Get order by ID",
-            description = "Fetch a single order by its ID.",
-            parameters = {
-                    @Parameter(name = "id", description = "Order ID", example = "101")
-            },
-            responses = {
-                    @ApiResponse(responseCode = "200", description = "Order found",
-                            content = @Content(schema = @Schema(implementation = OrderResponse.class))),
-                    @ApiResponse(responseCode = "404", description = "Order not found", content = @Content)
-            }
+            description = "Fetch a single order by its ID."
     )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Order found",
+                    content = @Content(
+                            schema = @Schema(implementation = OrderResponse.class),
+                            examples = @ExampleObject(
+                                    name = "Sample order",
+                                    value = """
+                {
+                  "eventType": "OrderCreated",
+                  "orderId": 101,
+                  "userId": "U001",
+                  "productId": "P001",
+                  "quantity": 2,
+                  "amount": 200.0
+                }
+                """
+                            )
+                    )
+            ),
+            @ApiResponse(responseCode = "404", description = "Order not found", content = @Content)
+    })
     @GetMapping("/{id}")
-    public ResponseEntity<OrderResponse> getOrder(@PathVariable Long id) {
+    public ResponseEntity<OrderResponse> getOrder(
+            @Parameter(description = "Order ID", example = "101")
+            @PathVariable Long id) {
         return ResponseEntity.ok(orderService.getOrderById(id));
     }
+
 }
